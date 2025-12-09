@@ -188,6 +188,8 @@
 "Player.Actions" = "Actions";
 "DefaultPlaybackRate" = "Default playback rate";
 "DefaultPlaybackRateDesc" = "Overrides the default playback speed";
+"FrameStepControls" = "Frame step controls";
+"FrameStepControlsDesc" = "Adds frame advance and reverse buttons to the player overlay for precise frame-by-frame navigation.";
 "BackgroundPlayback" = "Background playback";
 "BackgroundPlaybackDesc" = "Enables background playback.";
 "Miniplayer" = "Enable mini player";

@@ -188,6 +188,8 @@
 "Player.Actions" = "Acciones";
 "DefaultPlaybackRate" = "Velocidad de reproducción predeterminada";
 "DefaultPlaybackRateDesc" = "Anula la velocidad de reproducción predeterminada";
+"FrameStepControls" = "Controles de avance por fotogramas";
+"FrameStepControlsDesc" = "Agrega botones de avance y retroceso de fotogramas a la superposición del reproductor para una navegación precisa fotograma por fotograma.";
 "BackgroundPlayback" = "Reproducción en segundo plano";
 "BackgroundPlaybackDesc" = "Permite la reproducción en segundo plano.";
 "Miniplayer" = "Activar mini reproductor";

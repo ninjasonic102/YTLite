@@ -206,6 +206,7 @@ static NSString *GetCacheSize() {
                 [self switchWithTitle:@"Miniplayer" key:@"miniplayer"],
                 [self switchWithTitle:@"PortraitFullscreen" key:@"portraitFullscreen"],
                 [self switchWithTitle:@"CopyWithTimestamp" key:@"copyWithTimestamp"],
+                [self switchWithTitle:@"FrameStepControls" key:@"frameStepControls"],
                 [self switchWithTitle:@"DisableAutoplay" key:@"disableAutoplay"],
                 [self switchWithTitle:@"DisableAutoCaptions" key:@"disableAutoCaptions"],
                 [self switchWithTitle:@"NoContentWarning" key:@"noContentWarning"],

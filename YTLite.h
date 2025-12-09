@@ -319,6 +319,9 @@
 @property (readonly, nonatomic) NSString *videoID;
 - (void)setPlaybackRate:(CGFloat)rate;
 - (CGFloat)currentPlaybackRate;
+- (void)frameAdvance;
+- (void)frameReverse;
+- (void)addFrameStepButtons;
 @end
 
 @interface YTSpeedmasterController : NSObject

@@ -188,6 +188,8 @@
 "Player.Actions" = "Actions";
 "DefaultPlaybackRate" = "Vitesse de lecture par défaut";
 "DefaultPlaybackRateDesc" = "Overrides the default playback speed";
+"FrameStepControls" = "Contrôles d'avancement d'image";
+"FrameStepControlsDesc" = "Ajoute des boutons d'avancement et de recul d'image à la superposition du lecteur pour une navigation précise image par image.";
 "BackgroundPlayback" = "Lecture en arrière-plan";
 "BackgroundPlaybackDesc" = "Active la lecture en arrière-plan.";
 "Miniplayer" = "Activer le mini-lecteur";

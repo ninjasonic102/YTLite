@@ -1,4 +1,8 @@
 #import "YTLite.h"
+#import <objc/runtime.h>
+
+static const char kFrameForwardButtonKey;
+static const char kFrameBackwardButtonKey;
 
 static UIImage *YTImageNamed(NSString *imageName) {
     return [UIImage imageNamed:imageName inBundle:[NSBundle mainBundle] compatibleWithTraitCollection:nil];
@@ -581,6 +585,103 @@ void autoSkipShorts(YTPlayerViewController *self, YTSingleVideoController *video
 
         UIPasteboard *pasteboard = [UIPasteboard generalPasteboard];
         pasteboard.string = currentTimeLink;
+    }
+}
+
+// Frame Step Controls
+%new
+- (void)frameAdvance {
+    CGFloat currentTime = self.mediaTime;
+    CGFloat frameRate = 30.0; // Assume 30fps, could be made configurable
+    CGFloat frameDuration = 1.0 / frameRate;
+    CGFloat newTime = currentTime + frameDuration;
+    
+    // Try different approaches to seek
+    if ([self.parentViewController respondsToSelector:@selector(seekToTime:)]) {
+        [self.parentViewController performSelector:@selector(seekToTime:) withObject:@(newTime)];
+    } else if ([self.parentViewController respondsToSelector:@selector(seekToTime:toleranceBefore:toleranceAfter:)]) {
+        [self.parentViewController performSelector:@selector(seekToTime:toleranceBefore:toleranceAfter:) withObject:@(newTime) withObject:@(0.1) withObject:@(0.1)];
+    }
+}
+
+%new
+- (void)frameReverse {
+    CGFloat currentTime = self.mediaTime;
+    CGFloat frameRate = 30.0; // Assume 30fps, could be made configurable
+    CGFloat frameDuration = 1.0 / frameRate;
+    CGFloat newTime = MAX(0.0, currentTime - frameDuration);
+    
+    // Try different approaches to seek
+    if ([self.parentViewController respondsToSelector:@selector(seekToTime:)]) {
+        [self.parentViewController performSelector:@selector(seekToTime:) withObject:@(newTime)];
+    } else if ([self.parentViewController respondsToSelector:@selector(seekToTime:toleranceBefore:toleranceAfter:)]) {
+        [self.parentViewController performSelector:@selector(seekToTime:toleranceBefore:toleranceAfter:) withObject:@(newTime) withObject:@(0.1) withObject:@(0.1)];
+    }
+}
+
+%new
+- (void)addFrameStepButtons {
+    if (!ytlBool(@"frameStepControls") || !self.videoPlayerOverlayView) return;
+    
+    // Remove existing buttons if they exist
+    UIButton *existingForwardButton = objc_getAssociatedObject(self.videoPlayerOverlayView, &kFrameForwardButtonKey);
+    UIButton *existingBackwardButton = objc_getAssociatedObject(self.videoPlayerOverlayView, &kFrameBackwardButtonKey);
+    
+    if (existingForwardButton) {
+        [existingForwardButton removeFromSuperview];
+        objc_setAssociatedObject(self.videoPlayerOverlayView, &kFrameForwardButtonKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+    if (existingBackwardButton) {
+        [existingBackwardButton removeFromSuperview];
+        objc_setAssociatedObject(self.videoPlayerOverlayView, &kFrameBackwardButtonKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+    
+    // Create frame forward button
+    UIButton *frameForwardButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    frameForwardButton.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.6];
+    frameForwardButton.layer.cornerRadius = 20.0;
+    frameForwardButton.titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightMedium];
+    [frameForwardButton setTitle:@"⏭︎" forState:UIControlStateNormal];
+    [frameForwardButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    [frameForwardButton addTarget:self action:@selector(frameAdvance) forControlEvents:UIControlEventTouchUpInside];
+    frameForwardButton.translatesAutoresizingMaskIntoConstraints = NO;
+    
+    // Create frame backward button
+    UIButton *frameBackwardButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    frameBackwardButton.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.6];
+    frameBackwardButton.layer.cornerRadius = 20.0;
+    frameBackwardButton.titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightMedium];
+    [frameBackwardButton setTitle:@"⏮︎" forState:UIControlStateNormal];
+    [frameBackwardButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    [frameBackwardButton addTarget:self action:@selector(frameReverse) forControlEvents:UIControlEventTouchUpInside];
+    frameBackwardButton.translatesAutoresizingMaskIntoConstraints = NO;
+    
+    // Add buttons to overlay view
+    [self.videoPlayerOverlayView addSubview:frameBackwardButton];
+    [self.videoPlayerOverlayView addSubview:frameForwardButton];
+    
+    // Store references using associated objects
+    objc_setAssociatedObject(self.videoPlayerOverlayView, &kFrameForwardButtonKey, frameForwardButton, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(self.videoPlayerOverlayView, &kFrameBackwardButtonKey, frameBackwardButton, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    
+    // Position buttons
+    [NSLayoutConstraint activateConstraints:@[
+        [frameBackwardButton.centerXAnchor constraintEqualToAnchor:self.videoPlayerOverlayView.centerXAnchor constant:-60],
+        [frameBackwardButton.bottomAnchor constraintEqualToAnchor:self.videoPlayerOverlayView.bottomAnchor constant:-80],
+        [frameBackwardButton.widthAnchor constraintEqualToConstant:40],
+        [frameBackwardButton.heightAnchor constraintEqualToConstant:40],
+        
+        [frameForwardButton.centerXAnchor constraintEqualToAnchor:self.videoPlayerOverlayView.centerXAnchor constant:60],
+        [frameForwardButton.bottomAnchor constraintEqualToAnchor:self.videoPlayerOverlayView.bottomAnchor constant:-80],
+        [frameForwardButton.widthAnchor constraintEqualToConstant:40],
+        [frameForwardButton.heightAnchor constraintEqualToConstant:40]
+    ]];
+}
+
+- (void)viewDidAppear:(BOOL)animated {
+    %orig;
+    if (ytlBool(@"frameStepControls")) {
+        [self performSelector:@selector(addFrameStepButtons) withObject:nil afterDelay:0.5];
     }
 }
 %end

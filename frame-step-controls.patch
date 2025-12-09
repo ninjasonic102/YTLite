@@ -1,0 +1,199 @@
+diff --git a/.vscode/settings.json b/.vscode/settings.json
+new file mode 100644
+index 0000000..4d8af16
+--- /dev/null
++++ b/.vscode/settings.json
+@@ -0,0 +1,10 @@
++{
++    "files.exclude": {
++        "**/.git": true,
++        "**/.svn": true,
++        "**/.hg": true,
++        "**/.DS_Store": true,
++        "**/Thumbs.db": true,
++        ".mule": true
++    }
++}
+\ No newline at end of file
+diff --git a/Settings.x b/Settings.x
+index 3534ada..1756612 100644
+--- a/Settings.x
++++ b/Settings.x
+@@ -206,6 +206,7 @@ static NSString *GetCacheSize() {
+                 [self switchWithTitle:@"Miniplayer" key:@"miniplayer"],
+                 [self switchWithTitle:@"PortraitFullscreen" key:@"portraitFullscreen"],
+                 [self switchWithTitle:@"CopyWithTimestamp" key:@"copyWithTimestamp"],
++                [self switchWithTitle:@"FrameStepControls" key:@"frameStepControls"],
+                 [self switchWithTitle:@"DisableAutoplay" key:@"disableAutoplay"],
+                 [self switchWithTitle:@"DisableAutoCaptions" key:@"disableAutoCaptions"],
+                 [self switchWithTitle:@"NoContentWarning" key:@"noContentWarning"],
+diff --git a/YTLite.h b/YTLite.h
+index e79639f..bc3215d 100644
+--- a/YTLite.h
++++ b/YTLite.h
+@@ -319,6 +319,9 @@
+ @property (readonly, nonatomic) NSString *videoID;
+ - (void)setPlaybackRate:(CGFloat)rate;
+ - (CGFloat)currentPlaybackRate;
++- (void)frameAdvance;
++- (void)frameReverse;
++- (void)addFrameStepButtons;
+ @end
+ 
+ @interface YTSpeedmasterController : NSObject
+diff --git a/YTLite.x b/YTLite.x
+index d811a99..a87b9b0 100644
+--- a/YTLite.x
++++ b/YTLite.x
+@@ -1,4 +1,8 @@
+ #import "YTLite.h"
++#import <objc/runtime.h>
++
++static const char kFrameForwardButtonKey;
++static const char kFrameBackwardButtonKey;
+ 
+ static UIImage *YTImageNamed(NSString *imageName) {
+     return [UIImage imageNamed:imageName inBundle:[NSBundle mainBundle] compatibleWithTraitCollection:nil];
+@@ -583,6 +587,103 @@ void autoSkipShorts(YTPlayerViewController *self, YTSingleVideoController *video
+         pasteboard.string = currentTimeLink;
+     }
+ }
++
++// Frame Step Controls
++%new
++- (void)frameAdvance {
++    CGFloat currentTime = self.mediaTime;
++    CGFloat frameRate = 30.0; // Assume 30fps, could be made configurable
++    CGFloat frameDuration = 1.0 / frameRate;
++    CGFloat newTime = currentTime + frameDuration;
++    
++    // Try different approaches to seek
++    if ([self.parentViewController respondsToSelector:@selector(seekToTime:)]) {
++        [self.parentViewController performSelector:@selector(seekToTime:) withObject:@(newTime)];
++    } else if ([self.parentViewController respondsToSelector:@selector(seekToTime:toleranceBefore:toleranceAfter:)]) {
++        [self.parentViewController performSelector:@selector(seekToTime:toleranceBefore:toleranceAfter:) withObject:@(newTime) withObject:@(0.1) withObject:@(0.1)];
++    }
++}
++
++%new
++- (void)frameReverse {
++    CGFloat currentTime = self.mediaTime;
++    CGFloat frameRate = 30.0; // Assume 30fps, could be made configurable
++    CGFloat frameDuration = 1.0 / frameRate;
++    CGFloat newTime = MAX(0.0, currentTime - frameDuration);
++    
++    // Try different approaches to seek
++    if ([self.parentViewController respondsToSelector:@selector(seekToTime:)]) {
++        [self.parentViewController performSelector:@selector(seekToTime:) withObject:@(newTime)];
++    } else if ([self.parentViewController respondsToSelector:@selector(seekToTime:toleranceBefore:toleranceAfter:)]) {
++        [self.parentViewController performSelector:@selector(seekToTime:toleranceBefore:toleranceAfter:) withObject:@(newTime) withObject:@(0.1) withObject:@(0.1)];
++    }
++}
++
++%new
++- (void)addFrameStepButtons {
++    if (!ytlBool(@"frameStepControls") || !self.videoPlayerOverlayView) return;
++    
++    // Remove existing buttons if they exist
++    UIButton *existingForwardButton = objc_getAssociatedObject(self.videoPlayerOverlayView, &kFrameForwardButtonKey);
++    UIButton *existingBackwardButton = objc_getAssociatedObject(self.videoPlayerOverlayView, &kFrameBackwardButtonKey);
++    
++    if (existingForwardButton) {
++        [existingForwardButton removeFromSuperview];
++        objc_setAssociatedObject(self.videoPlayerOverlayView, &kFrameForwardButtonKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
++    }
++    if (existingBackwardButton) {
++        [existingBackwardButton removeFromSuperview];
++        objc_setAssociatedObject(self.videoPlayerOverlayView, &kFrameBackwardButtonKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
++    }
++    
++    // Create frame forward button
++    UIButton *frameForwardButton = [UIButton buttonWithType:UIButtonTypeSystem];
++    frameForwardButton.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.6];
++    frameForwardButton.layer.cornerRadius = 20.0;
++    frameForwardButton.titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightMedium];
++    [frameForwardButton setTitle:@"⏭︎" forState:UIControlStateNormal];
++    [frameForwardButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
++    [frameForwardButton addTarget:self action:@selector(frameAdvance) forControlEvents:UIControlEventTouchUpInside];
++    frameForwardButton.translatesAutoresizingMaskIntoConstraints = NO;
++    
++    // Create frame backward button
++    UIButton *frameBackwardButton = [UIButton buttonWithType:UIButtonTypeSystem];
++    frameBackwardButton.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.6];
++    frameBackwardButton.layer.cornerRadius = 20.0;
++    frameBackwardButton.titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightMedium];
++    [frameBackwardButton setTitle:@"⏮︎" forState:UIControlStateNormal];
++    [frameBackwardButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
++    [frameBackwardButton addTarget:self action:@selector(frameReverse) forControlEvents:UIControlEventTouchUpInside];
++    frameBackwardButton.translatesAutoresizingMaskIntoConstraints = NO;
++    
++    // Add buttons to overlay view
++    [self.videoPlayerOverlayView addSubview:frameBackwardButton];
++    [self.videoPlayerOverlayView addSubview:frameForwardButton];
++    
++    // Store references using associated objects
++    objc_setAssociatedObject(self.videoPlayerOverlayView, &kFrameForwardButtonKey, frameForwardButton, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
++    objc_setAssociatedObject(self.videoPlayerOverlayView, &kFrameBackwardButtonKey, frameBackwardButton, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
++    
++    // Position buttons
++    [NSLayoutConstraint activateConstraints:@[
++        [frameBackwardButton.centerXAnchor constraintEqualToAnchor:self.videoPlayerOverlayView.centerXAnchor constant:-60],
++        [frameBackwardButton.bottomAnchor constraintEqualToAnchor:self.videoPlayerOverlayView.bottomAnchor constant:-80],
++        [frameBackwardButton.widthAnchor constraintEqualToConstant:40],
++        [frameBackwardButton.heightAnchor constraintEqualToConstant:40],
++        
++        [frameForwardButton.centerXAnchor constraintEqualToAnchor:self.videoPlayerOverlayView.centerXAnchor constant:60],
++        [frameForwardButton.bottomAnchor constraintEqualToAnchor:self.videoPlayerOverlayView.bottomAnchor constant:-80],
++        [frameForwardButton.widthAnchor constraintEqualToConstant:40],
++        [frameForwardButton.heightAnchor constraintEqualToConstant:40]
++    ]];
++}
++
++- (void)viewDidAppear:(BOOL)animated {
++    %orig;
++    if (ytlBool(@"frameStepControls")) {
++        [self performSelector:@selector(addFrameStepButtons) withObject:nil afterDelay:0.5];
++    }
++}
+ %end
+ 
+ // Fit 'Play All' Buttons Text For Localizations
+diff --git a/layout/Library/Application Support/YTLite.bundle/en.lproj/Localizable.strings b/layout/Library/Application Support/YTLite.bundle/en.lproj/Localizable.strings
+index 5cdc224..1216685 100644
+--- a/layout/Library/Application Support/YTLite.bundle/en.lproj/Localizable.strings	
++++ b/layout/Library/Application Support/YTLite.bundle/en.lproj/Localizable.strings	
+@@ -188,6 +188,8 @@
+ "Player.Actions" = "Actions";
+ "DefaultPlaybackRate" = "Default playback rate";
+ "DefaultPlaybackRateDesc" = "Overrides the default playback speed";
++"FrameStepControls" = "Frame step controls";
++"FrameStepControlsDesc" = "Adds frame advance and reverse buttons to the player overlay for precise frame-by-frame navigation.";
+ "BackgroundPlayback" = "Background playback";
+ "BackgroundPlaybackDesc" = "Enables background playback.";
+ "Miniplayer" = "Enable mini player";
+diff --git a/layout/Library/Application Support/YTLite.bundle/es.lproj/Localizable.strings b/layout/Library/Application Support/YTLite.bundle/es.lproj/Localizable.strings
+index 0c2c2bd..86d24c4 100644
+--- a/layout/Library/Application Support/YTLite.bundle/es.lproj/Localizable.strings	
++++ b/layout/Library/Application Support/YTLite.bundle/es.lproj/Localizable.strings	
+@@ -188,6 +188,8 @@
+ "Player.Actions" = "Acciones";
+ "DefaultPlaybackRate" = "Velocidad de reproducción predeterminada";
+ "DefaultPlaybackRateDesc" = "Anula la velocidad de reproducción predeterminada";
++"FrameStepControls" = "Controles de avance por fotogramas";
++"FrameStepControlsDesc" = "Agrega botones de avance y retroceso de fotogramas a la superposición del reproductor para una navegación precisa fotograma por fotograma.";
+ "BackgroundPlayback" = "Reproducción en segundo plano";
+ "BackgroundPlaybackDesc" = "Permite la reproducción en segundo plano.";
+ "Miniplayer" = "Activar mini reproductor";
+diff --git a/layout/Library/Application Support/YTLite.bundle/fr.lproj/Localizable.strings b/layout/Library/Application Support/YTLite.bundle/fr.lproj/Localizable.strings
+index cd32fd4..dbbcdc1 100644
+--- a/layout/Library/Application Support/YTLite.bundle/fr.lproj/Localizable.strings	
++++ b/layout/Library/Application Support/YTLite.bundle/fr.lproj/Localizable.strings	
+@@ -188,6 +188,8 @@
+ "Player.Actions" = "Actions";
+ "DefaultPlaybackRate" = "Vitesse de lecture par défaut";
+ "DefaultPlaybackRateDesc" = "Overrides the default playback speed";
++"FrameStepControls" = "Contrôles d'avancement d'image";
++"FrameStepControlsDesc" = "Ajoute des boutons d'avancement et de recul d'image à la superposition du lecteur pour une navigation précise image par image.";
+ "BackgroundPlayback" = "Lecture en arrière-plan";
+ "BackgroundPlaybackDesc" = "Active la lecture en arrière-plan.";
+ "Miniplayer" = "Activer le mini-lecteur";
